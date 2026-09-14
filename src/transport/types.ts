@@ -10,5 +10,6 @@ export interface Transport {
   getById(id: string): Promise<JobEnvelope | undefined>;
   getByIdempotencyKey(key: string): Promise<JobEnvelope | undefined>;
   listDeadLetters(): Promise<JobEnvelope[]>;
+  pendingLag?(): Promise<number>;
   close?(): Promise<void>;
 }

@@ -127,6 +127,16 @@ export class MemoryTransport implements Transport {
       .filter((job): job is JobEnvelope => Boolean(job));
   }
 
+  async pendingLag(): Promise<number> {
+    let count = 0;
+    for (const job of this.jobs.values()) {
+      if (job.status === "queued") {
+        count += 1;
+      }
+    }
+    return count;
+  }
+
   size(): number {
     return this.jobs.size;
   }

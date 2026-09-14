@@ -21,13 +21,14 @@
   ],
   "scripts": {
     "dev": "tsx src/demo.ts",
+    "serve": "tsx src/server.ts",
     "build": "tsc -p tsconfig.build.json",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:integration": "vitest run --config vitest.integration.config.ts",
     "docker:up": "docker compose up -d",
     "docker:down": "docker compose down",
-    "loadtest": "node scripts/load-test.mjs"
+    "loadtest": "tsx scripts/load-test.ts"
   },
   "keywords": [
     "redis-streams",
@@ -42,6 +43,7 @@
   },
   "devDependencies": {
     "@types/node": "^22.18.1",
+    "autocannon": "^8.0.0",
     "tsx": "^4.20.5",
     "typescript": "^5.9.2",
     "vitest": "^3.2.4"

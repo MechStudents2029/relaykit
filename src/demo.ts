@@ -4,13 +4,24 @@ import type { JobHandler } from "./core/worker.js";
 import { createPublicApiHandler } from "./handlers/public-api.js";
 import { CircuitBreaker } from "./resilience/circuit-breaker.js";
 import { MemoryTransport } from "./transport/memory.js";
+import { startServer } from "./server.js";
 
 /**
  * Local walkthrough: idempotent enqueue, injected failures, retry, then success.
- * Uses an in-memory transport so `npm run dev` works without Redis or API keys.
+ * `npm run dev` is in-memory. `npm run dev -- --http` (or `npm run serve`) starts the API.
  * Set USE_PUBLIC_API=1 to call JSONPlaceholder (free, no key) on the last hop.
  */
 async function main(): Promise<void> {
+  if (process.argv.includes("--http")) {
+    const started = await startServer();
+    const shutdown = (): void => {
+      void started.close().then(() => process.exit(0));
+    };
+    process.on("SIGINT", shutdown);
+    process.on("SIGTERM", shutdown);
+    return;
+  }
+
   const usePublicApi = process.env.USE_PUBLIC_API === "1";
   const handler: JobHandler = usePublicApi
     ? createPublicApiHandler({ injectFailures: 1 })
@@ -58,8 +69,8 @@ async function main(): Promise<void> {
   console.log(`final status=${finalJob?.status} attempt=${finalJob?.attempt}`);
   console.log(`result=${JSON.stringify(finalJob?.result)}`);
   console.log(`dlq size=${await relay.dlq.size()}`);
-  console.log("\nNext: docker compose up -d && npm run test:integration");
-  console.log("Day 4 hook: tsx src/demo.ts --http  (not implemented — see src/http/server.ts)");
+  console.log("\nNext: npm run serve     # HTTP API on :3000");
+  console.log("      npm run docker:up && npm run test:integration");
 }
 
 main().catch((error) => {

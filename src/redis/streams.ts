@@ -187,6 +187,19 @@ export class RedisStreamsTransport implements Transport {
     return jobs;
   }
 
+  async pendingLag(): Promise<number> {
+    const redis = await this.connect();
+    const delayed = Number(await redis.zCard(this.keys.delayed));
+    try {
+      const groups = await redis.xInfoGroups(this.keys.stream);
+      const group = groups.find((entry) => String(entry.name) === this.keys.group);
+      return Number(group?.lag ?? 0) + delayed;
+    } catch {
+      const pending = await redis.xPending(this.keys.stream, this.keys.group);
+      return Number(pending.pending) + delayed;
+    }
+  }
+
   async close(): Promise<void> {
     if (!this.ownedClient) {
       return;

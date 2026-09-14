@@ -22,8 +22,11 @@ export {
   createPublicApiHandler,
   isAllowedPublicUrl,
 } from "./handlers/public-api.js";
-export { createHttpServer, listenHttp } from "./http/server.js";
-export { createMetricsRegistry, renderMetrics, type MetricsRegistry } from "./metrics/registry.js";
+export { createHttpServer, listenHttp, type HttpServerOptions } from "./http/server.js";
+export { OPENAPI_DOCUMENT } from "./http/openapi.js";
+export { apiKeyAuthorized, extractApiKey } from "./http/auth.js";
+export { createMetricsRegistry, renderMetrics, MetricsRegistry } from "./metrics/registry.js";
+export { startServer } from "./server.js";
 export { redisAvailable, RedisStreamsTransport } from "./redis/streams.js";
 export { streamKeys } from "./redis/keys.js";
 export { Bulkhead } from "./resilience/bulkhead.js";
