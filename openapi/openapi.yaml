@@ -1,0 +1,50 @@
+openapi: 3.1.0
+info:
+  title: RelayKit
+  version: 0.1.0
+  description: |
+    Day 4 scaffold. Implement enqueue / status / DLQ inspect here.
+    Do not add paid auth providers; a local API-key header stub is enough.
+paths:
+  /health:
+    get:
+      summary: Liveness
+      responses:
+        "200":
+          description: ok
+  /v1/jobs:
+    post:
+      summary: Enqueue a job
+      description: TODO Day 4 — accept type, payload, idempotencyKey
+      responses:
+        "202":
+          description: accepted
+        "501":
+          description: not implemented
+  /v1/jobs/{id}:
+    get:
+      summary: Job status
+      description: TODO Day 4
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "501":
+          description: todo
+  /v1/dlq:
+    get:
+      summary: Inspect dead-letter queue
+      description: TODO Day 4
+      responses:
+        "501":
+          description: todo
+  /metrics:
+    get:
+      summary: Prometheus-style metrics
+      description: TODO Day 5 — processed, failed, lag
+      responses:
+        "200":
+          description: text exposition format
