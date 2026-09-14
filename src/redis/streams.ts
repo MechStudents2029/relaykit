@@ -39,7 +39,12 @@ export class RedisStreamsTransport implements Transport {
     this.clock = options.clock ?? systemClock;
     this.defaultMaxAttempts = options.defaultMaxAttempts ?? DEFAULT_MAX_ATTEMPTS;
     this.ownedClient = !options.client;
-    this.client = options.client ?? createClient({ url: this.url });
+    this.client =
+      options.client ??
+      createClient({
+        url: this.url,
+        socket: { connectTimeout: 1_000, reconnectStrategy: false },
+      });
   }
 
   async enqueue<T>(input: EnqueueInput<T>): Promise<EnqueueResult<T>> {
@@ -82,11 +87,12 @@ export class RedisStreamsTransport implements Transport {
     const redis = await this.connect();
     await this.promoteDelayed();
     const block = blockMs ?? this.blockMs;
+    // Redis BLOCK 0 waits forever; treat 0 as a non-blocking poll.
     const result = await redis.xReadGroup(
       this.keys.group,
       this.consumer,
       { key: this.keys.stream, id: ">" },
-      { COUNT: 1, BLOCK: block },
+      block > 0 ? { COUNT: 1, BLOCK: block } : { COUNT: 1 },
     );
     const message = result?.[0]?.messages[0];
     if (!message) {
@@ -268,21 +274,22 @@ function streamField(message: unknown, name: string): string | undefined {
 }
 
 export async function redisAvailable(url = process.env.REDIS_URL ?? "redis://127.0.0.1:6379"): Promise<boolean> {
-  const client = createClient({ url });
+  const client = createClient({
+    url,
+    socket: { connectTimeout: 300, reconnectStrategy: false },
+  });
   client.on("error", () => {});
   try {
-    await Promise.race([
-      client.connect().then(() => client.ping()),
-      new Promise<never>((_, reject) => {
-        setTimeout(() => reject(new Error("redis probe timeout")), 400);
-      }),
-    ]);
+    await client.connect();
+    await client.ping();
     return true;
   } catch {
     return false;
   } finally {
-    if (client.isOpen) {
-      await client.quit().catch(() => undefined);
+    try {
+      client.destroy();
+    } catch {
+      /* already closed */
     }
   }
 }

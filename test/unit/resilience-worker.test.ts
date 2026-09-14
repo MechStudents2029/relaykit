@@ -116,7 +116,8 @@ describe("resilience worker", () => {
     });
 
     const first = await relay.worker.processNext();
-    expect(first?.status).toBe("retrying");
+    expect(first?.status).toBe("queued");
+    expect(first?.lastError).toBe("trip");
     expect(breaker.getState()).toBe("open");
 
     const skipped = await relay.worker.processNext();
