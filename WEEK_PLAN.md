@@ -38,21 +38,33 @@ Suggested commit: `feat(redis): add streams producer and consumer group`
 
 Suggested commit: `feat(resilience): add backoff, DLQ, and circuit breaker`
 
-## Day 4 — HTTP API + OpenAPI — stubbed (next weekday push)
+## Day 4 — HTTP API + OpenAPI — done
 
-- [ ] Finish enqueue / status / DLQ inspect endpoints (`src/http/server.ts` already has `/health`, `/openapi.json`, and a working enqueue stub when a `Relay` is passed)
-- [ ] Expand `openapi/openapi.yaml` and keep it in sync with routes
-- [ ] Optional local API-key header stub for demos (no paid IdP)
-- [ ] `GET /v1/jobs/:id` and `GET /v1/dlq` currently return **501**
+- Enqueue / status / DLQ inspect endpoints
+- OpenAPI spec (`openapi/openapi.yaml` and `GET /openapi.json`)
+- Local API-key stub (`RELAYKIT_API_KEY`, `X-API-Key` or Bearer — no paid IdP)
+
+**Landed in:** `src/http/server.ts`, `src/http/auth.ts`, `src/http/openapi.ts`, `src/server.ts`, `test/unit/http-api.test.ts`, `test/unit/auth.test.ts`
+
+```bash
+npm run serve
+curl -s http://127.0.0.1:3000/openapi.json
+```
 
 Suggested commit: `feat(http): enqueue, status, and DLQ inspect API`
 
-## Day 5 — Metrics, load test, polish — stubbed (next weekday push)
+## Day 5 — Metrics, load test, polish — done
 
-- [ ] Live metrics: processed, failed, retried, duplicates, Redis stream lag (`src/metrics/registry.ts` is a static stub)
-- [ ] Replace `scripts/load-test.mjs` with local autocannon or k6 (no paid load-test SaaS)
-- [ ] Wire worker `onEvent` into the registry
-- [ ] README architecture diagram is in place; refresh screenshots/numbers after the load test
+- Live metrics: processed, failed, retried, duplicates, claimed, consumer lag
+- `scripts/load-test.ts` via local autocannon (no paid load-test SaaS)
+- Worker `onEvent` wired into `MetricsRegistry`
+- README architecture + resume bullets
+
+**Landed in:** `src/metrics/registry.ts`, `scripts/load-test.ts`, `test/unit/metrics.test.ts`, `README.md`
+
+```bash
+npm run loadtest
+```
 
 Suggested commit: `feat(observability): metrics endpoint and local load test`
 
