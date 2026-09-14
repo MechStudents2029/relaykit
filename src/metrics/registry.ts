@@ -1,23 +1,49 @@
-/**
- * Day 5 stub — in-process counters so /metrics has a shape.
- * Replace with labeled Prometheus counters + Redis stream lag.
- */
-export interface MetricsRegistry {
-  processed: number;
-  failed: number;
-  deadLettered: number;
-  retried: number;
-  duplicates: number;
+import type { WorkerEvent } from "../core/worker.js";
+
+export class MetricsRegistry {
+  processed = 0;
+  failed = 0;
+  deadLettered = 0;
+  retried = 0;
+  duplicates = 0;
+  claimed = 0;
+  circuitOpen = 0;
+  consumerLag = 0;
+
+  apply(event: WorkerEvent): void {
+    switch (event.type) {
+      case "claimed":
+        this.claimed += 1;
+        break;
+      case "succeeded":
+        this.processed += 1;
+        break;
+      case "failed":
+        this.failed += 1;
+        break;
+      case "dead_lettered":
+        this.deadLettered += 1;
+        break;
+      case "retrying":
+        this.retried += 1;
+        break;
+      case "circuit_open":
+        this.circuitOpen += 1;
+        break;
+    }
+  }
+
+  recordDuplicate(): void {
+    this.duplicates += 1;
+  }
+
+  setConsumerLag(value: number): void {
+    this.consumerLag = value;
+  }
 }
 
 export function createMetricsRegistry(): MetricsRegistry {
-  return {
-    processed: 0,
-    failed: 0,
-    deadLettered: 0,
-    retried: 0,
-    duplicates: 0,
-  };
+  return new MetricsRegistry();
 }
 
 export function renderMetrics(registry?: MetricsRegistry): string {
@@ -38,9 +64,15 @@ export function renderMetrics(registry?: MetricsRegistry): string {
     "# HELP relaykit_jobs_duplicates_total Enqueues suppressed by idempotency key.",
     "# TYPE relaykit_jobs_duplicates_total counter",
     `relaykit_jobs_duplicates_total ${m.duplicates}`,
-    "# HELP relaykit_consumer_lag Pending Redis Stream entries (Day 5 TODO).",
+    "# HELP relaykit_jobs_claimed_total Jobs claimed by a worker.",
+    "# TYPE relaykit_jobs_claimed_total counter",
+    `relaykit_jobs_claimed_total ${m.claimed}`,
+    "# HELP relaykit_circuit_open_total Times the worker skipped claim because the breaker was open.",
+    "# TYPE relaykit_circuit_open_total counter",
+    `relaykit_circuit_open_total ${m.circuitOpen}`,
+    "# HELP relaykit_consumer_lag Ready + delayed jobs waiting for a worker.",
     "# TYPE relaykit_consumer_lag gauge",
-    "relaykit_consumer_lag 0",
+    `relaykit_consumer_lag ${m.consumerLag}`,
     "",
   ].join("\n");
 }

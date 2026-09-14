@@ -3,28 +3,156 @@ info:
   title: RelayKit
   version: 0.1.0
   description: |
-    Day 4 scaffold. Implement enqueue / status / DLQ inspect here.
-    Do not add paid auth providers; a local API-key header stub is enough.
+    Local-first job relay HTTP API.
+    Optional API key via X-API-Key or Authorization: Bearer (RELAYKIT_API_KEY).
+    No paid identity providers.
+servers:
+  - url: http://127.0.0.1:3000
+    description: Local default
+tags:
+  - name: jobs
+    description: Enqueue and inspect jobs
+  - name: ops
+    description: Health, OpenAPI, and metrics
+components:
+  securitySchemes:
+    apiKey:
+      type: apiKey
+      in: header
+      name: X-API-Key
+      description: Local demo key from RELAYKIT_API_KEY. Omit the env var to disable auth.
+    bearer:
+      type: http
+      scheme: bearer
+      description: Same value as X-API-Key.
+  schemas:
+    JobEnvelope:
+      type: object
+      required:
+        - id
+        - type
+        - payload
+        - idempotencyKey
+        - status
+        - attempt
+        - maxAttempts
+        - createdAt
+        - updatedAt
+        - availableAt
+      properties:
+        id:
+          type: string
+        type:
+          type: string
+        payload: {}
+        idempotencyKey:
+          type: string
+        status:
+          type: string
+          enum:
+            - pending
+            - queued
+            - processing
+            - retrying
+            - succeeded
+            - failed
+            - dead_lettered
+        attempt:
+          type: integer
+        maxAttempts:
+          type: integer
+        createdAt:
+          type: integer
+        updatedAt:
+          type: integer
+        availableAt:
+          type: integer
+        lastError:
+          type: string
+        result: {}
+    EnqueueRequest:
+      type: object
+      required: [type, idempotencyKey]
+      properties:
+        type:
+          type: string
+        payload: {}
+        idempotencyKey:
+          type: string
+        maxAttempts:
+          type: integer
+    EnqueueResponse:
+      type: object
+      required: [job, duplicate]
+      properties:
+        job:
+          $ref: "#/components/schemas/JobEnvelope"
+        duplicate:
+          type: boolean
+    ErrorBody:
+      type: object
+      properties:
+        error:
+          type: string
+        hint:
+          type: string
 paths:
   /health:
     get:
+      tags: [ops]
       summary: Liveness
+      security: []
       responses:
         "200":
           description: ok
+  /openapi.json:
+    get:
+      tags: [ops]
+      summary: OpenAPI document
+      security: []
+      responses:
+        "200":
+          description: OpenAPI 3.1 JSON
+  /metrics:
+    get:
+      tags: [ops]
+      summary: Prometheus text exposition
+      security: []
+      responses:
+        "200":
+          description: text/plain; version=0.0.4
   /v1/jobs:
     post:
+      tags: [jobs]
       summary: Enqueue a job
-      description: TODO Day 4 — accept type, payload, idempotencyKey
+      description: Idempotent enqueue. Re-using idempotencyKey returns duplicate=true.
+      security:
+        - apiKey: []
+        - bearer: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/EnqueueRequest"
       responses:
         "202":
           description: accepted
-        "501":
-          description: not implemented
+        "200":
+          description: duplicate suppressed
+        "400":
+          description: invalid body
+        "401":
+          description: API key required or invalid
+        "503":
+          description: relay not configured
   /v1/jobs/{id}:
     get:
+      tags: [jobs]
       summary: Job status
-      description: TODO Day 4
+      security:
+        - apiKey: []
+        - bearer: []
       parameters:
         - name: id
           in: path
@@ -32,19 +160,25 @@ paths:
           schema:
             type: string
       responses:
-        "501":
-          description: todo
+        "200":
+          description: job envelope
+        "401":
+          description: API key required or invalid
+        "404":
+          description: unknown job
+        "503":
+          description: relay not configured
   /v1/dlq:
     get:
+      tags: [jobs]
       summary: Inspect dead-letter queue
-      description: TODO Day 4
-      responses:
-        "501":
-          description: todo
-  /metrics:
-    get:
-      summary: Prometheus-style metrics
-      description: TODO Day 5 — processed, failed, lag
+      security:
+        - apiKey: []
+        - bearer: []
       responses:
         "200":
-          description: text exposition format
+          description: dead-lettered jobs
+        "401":
+          description: API key required or invalid
+        "503":
+          description: relay not configured

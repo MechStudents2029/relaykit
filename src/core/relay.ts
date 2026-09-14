@@ -4,6 +4,7 @@ import type { CircuitBreaker } from "../resilience/circuit-breaker.js";
 import type { Bulkhead } from "../resilience/bulkhead.js";
 import { DeadLetterQueue } from "../resilience/dlq.js";
 import type { RetryPolicy } from "../resilience/retry.js";
+import type { MetricsRegistry } from "../metrics/registry.js";
 import type { EnqueueInput, EnqueueResult, JobEnvelope } from "../types/job.js";
 import type { Transport } from "../transport/types.js";
 
@@ -15,16 +16,19 @@ export interface RelayOptions {
   breaker?: CircuitBreaker;
   bulkhead?: Bulkhead;
   pollIntervalMs?: number;
+  metrics?: MetricsRegistry;
   onEvent?: (event: WorkerEvent) => void;
 }
 
 export class Relay {
   readonly worker: Worker;
   readonly dlq: DeadLetterQueue;
+  readonly metrics?: MetricsRegistry;
   private readonly transport: Transport;
 
   constructor(options: RelayOptions) {
     this.transport = options.transport;
+    this.metrics = options.metrics;
     this.dlq = new DeadLetterQueue(options.transport);
     const workerOptions: WorkerOptions = {
       transport: options.transport,
@@ -34,13 +38,20 @@ export class Relay {
       breaker: options.breaker,
       bulkhead: options.bulkhead,
       pollIntervalMs: options.pollIntervalMs,
-      onEvent: options.onEvent,
+      onEvent: (event) => {
+        this.metrics?.apply(event);
+        options.onEvent?.(event);
+      },
     };
     this.worker = new Worker(workerOptions);
   }
 
-  enqueue<T>(input: EnqueueInput<T>): Promise<EnqueueResult<T>> {
-    return this.transport.enqueue(input);
+  async enqueue<T>(input: EnqueueInput<T>): Promise<EnqueueResult<T>> {
+    const result = await this.transport.enqueue(input);
+    if (result.duplicate) {
+      this.metrics?.recordDuplicate();
+    }
+    return result;
   }
 
   getJob(id: string): Promise<JobEnvelope | undefined> {
@@ -49,6 +60,10 @@ export class Relay {
 
   getByIdempotencyKey(key: string): Promise<JobEnvelope | undefined> {
     return this.transport.getByIdempotencyKey(key);
+  }
+
+  pendingLag(): Promise<number> {
+    return this.transport.pendingLag?.() ?? Promise.resolve(0);
   }
 
   start(): void {
